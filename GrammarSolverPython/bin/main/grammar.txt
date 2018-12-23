@@ -1,0 +1,3 @@
+sentence:person is adjective
+person: Matthew|Drew|Ryder|Ryan
+adjective: gay|homo|fag
