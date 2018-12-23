@@ -5,17 +5,24 @@ import java.io.File;
 import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Iterator;
 import java.util.Map;
+import java.util.Scanner;
 import java.util.TreeMap;
-import java.util.regex.Pattern;
 
 public class Grammar{
     public static void main(String[] args) throws Exception {
-        Map<String, ArrayList<String>> list = readFile("src/main/resources/grammar.txt");
-        ArrayList<String> output = formSentences(list,10);
-        for(String sent:output){
-            System.out.println(sent);
+        System.out.println("File Name? ");
+        Scanner input = new Scanner(System.in);
+        String fName = input.nextLine();
+        String file = "src/main/resources/"+fName+".txt";
+        System.out.println("Number of Sentences? ");
+        int num = input.nextInt();
+        input.close();
+        
+        Map<String, ArrayList<String>> list = readFile(file);
+        ArrayList<String> output = formSentences(list,num);
+        for(int i=0; i<output.size(); i++){
+            System.out.println((i+1)+". "+output.get(i));
         }
     }
 

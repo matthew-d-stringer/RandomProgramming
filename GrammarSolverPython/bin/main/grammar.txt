@@ -1,5 +1,5 @@
-start:subject predicate
-subject:Samantha|Matthew
-predicate:actionVerb directObject
-actionVerb:eats|consumes
-directObject:dick|ass
+start:<subject> <predicate>
+<subject>:Samantha
+<predicate>:<actionVerb> <directObject>|
+<actionVerb>:eats|consumes|gobbles
+<directObject>:dick|ass|cunt
