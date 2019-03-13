@@ -2,25 +2,25 @@ import cv2
 import numpy as numpy
 from grip import GripPipeline
 
-W = 320
-H = 240
+def processImg(dir, gripCode):
+    img = cv2.imread(dir, cv2.IMREAD_COLOR)
+    img = cv2.resize(img, (320,240))
+    out = gripCode.process(img)
+    scale = 2
+    out = cv2.resize(out, (320*scale,240*scale))
+    cv2.imshow(dir,out)
 
-# img = cv2.imread('../resources/cargoship2.png',cv2.IMREAD_COLOR)
-img = cv2.imread('../resources/missingPart.png',cv2.IMREAD_COLOR)
-
-height, width, depth = img.shape
-
-scaleX = W/width
-scaleY = H/height
-newX,newY = img.shape[1]*scaleX, img.shape[0]*scaleY
-# newimg = cv2.resize(img,(int(newX),int(newY)))
-newimg = cv2.resize(img,(int(320),int(240)))
+dirBegin = '../resources/'
 
 gripCode = GripPipeline()
-out = gripCode.process(newimg)
-out = cv2.resize(out,(320*2,240*2))
 
-# cv2.imshow('img', newimg)
-cv2.imshow('out', out)
+processImg(dirBegin+'cargoship.png',gripCode)
+processImg(dirBegin+'cargoship2.png',gripCode)
+processImg(dirBegin+'cargoshipNoise.png',gripCode)
+processImg(dirBegin+'confusingTarget.png',gripCode)
+processImg(dirBegin+'missingPart.png',gripCode)
+processImg(dirBegin+'multipleTargets.png',gripCode)
+processImg(dirBegin+'target.png',gripCode)
+
 cv2.waitKey(0)
 cv2.destroyAllWindows()
