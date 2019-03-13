@@ -47,19 +47,19 @@ class GripPipeline:
 
         def findRightContour(rightCnts, rows, leftX, leftH):
             exitNorm = False
-            print("leftx: "+str(leftX))
+            # print("leftx: "+str(leftX))
             for i in range(len(rightCnts)):
                 contour = rightCnts[i]
                 x,y,w,h = cv2.boundingRect(contour)
                 cv2.rectangle(output, (x,y), (x+w,y+h),(255,0,0),2)
-                print("rightx: "+str(x))
+                # print("rightx: "+str(x))
                 if x < leftX or abs(leftH-h) > rows/4:
-                    print("skipped")
+                    # print("skipped")
                     exitNorm = False
                     continue
                 exitNorm = True
                 break
-            print("exit norm: "+str(exitNorm))
+            # print("exit norm: "+str(exitNorm))
             return exitNorm,x,y,w,h
 
         if cContour >= len(leftContours):
