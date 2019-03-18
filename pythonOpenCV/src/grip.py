@@ -13,6 +13,7 @@ class GripPipeline:
         """
 
         self.font = cv2.FONT_HERSHEY_COMPLEX
+        self.fontScale = 0.5
 
         self.__hsv_threshold_hue = [17.805755395683452, 118.5665529010239]
         self.__hsv_threshold_saturation = [32.10431654676259, 255.0]
@@ -29,47 +30,77 @@ class GripPipeline:
 
         self.convex_hulls_output = None
 
+    def selectContours(self, contours, output):
+        def sortByX(contour):
+            def findX(cnt):
+                x,y,w,h = cv2.boundingRect(cnt)
+                return x
+            sortedVals = sorted(contour, reverse=False, key=findX)
+            return sortedVals
+        def sortByHeight(contour, cols):
+            def findHeight(cnt):
+                x,y,w,h = cv2.boundingRect(cnt)
+                return int(h*math.exp(-(x-0.4*cols)**2*cols**(-2))) #returns the centermost and tallest contour
+            sortedVals = sorted(contour, reverse=True, key=findHeight)
+            return sortedVals
+        def findLeftAndRightContour(output, leftContours, cContour, rightContours,rows):
+            def findRightContour(rightCnts, rows, leftX, leftH):
+                exitNorm = False
+                # print("leftx: "+str(leftX))
+                for i in range(len(rightCnts)):
+                    contour = rightCnts[i]
+                    x,y,w,h = cv2.boundingRect(contour)
+                    cv2.rectangle(output, (x,y), (x+w,y+h),(255,0,0),2)
+                    # print("rightx: "+str(x))
+                    if x < leftX or abs(leftH-h) > rows/4:
+                        # print("skipped")
+                        exitNorm = False
+                        continue
+                    exitNorm = True
+                    break
+                # print("exit norm: "+str(exitNorm))
+                return exitNorm,x,y,w,h
 
-    def sortByX(self, contour):
-        def findX(cnt):
-            x,y,w,h = cv2.boundingRect(cnt)
-            return x
-        sortedVals = sorted(contour, reverse=False, key=findX)
-        return sortedVals
-    def sortByHeight(self, contour, cols):
-        def findHeight(cnt):
-            x,y,w,h = cv2.boundingRect(cnt)
-            return int(h*math.exp(-(x-cols/2)**2*cols**(-2))) #returns the centermost and tallest contour
-        sortedVals = sorted(contour, reverse=True, key=findHeight)
-        return sortedVals
+            if cContour >= len(leftContours):
+                return False, 0,0,0,0, 0,0,0,0
+            leftCnt = leftContours[cContour]
+            x,y,w,h = cv2.boundingRect(leftCnt)
+            exitNorm,rx,ry,rw,rh = findRightContour(rightContours,rows,x,h)
+            if not exitNorm:
+                return findLeftAndRightContour(output, leftContours, cContour+1, rightContours, rows)
+            return True, x,y,w,h, rx,ry,rw,rh
+        cv2.drawContours(output, contours, -1, (0, 0, 255), 1)
 
-    def findLeftAndRightContour(self, output, leftContours, cContour, rightContours,rows):
+        sortedByHeight = sortByHeight(contours, output.shape[1])
+        leftContours = []
+        rightContours = []
+        for i in range(0, len(contours)):
+            contour = sortedByHeight[i]
+            rows,cols = output.shape[:2]
+            [vx,vy,x,y] = cv2.fitLine(contour, cv2.DIST_L2,0,0.01,0.01)
+            if vx < 0.02 and vx > -0.02:
+                direction ="null"
+            elif vy/vx > 0:
+                direction = "right"
+                rightContours.append(contour)
+            elif vy/vx < 0:
+                direction = "left"
+                leftContours.append(contour)
+            cv2.putText(output, direction,(x,y), self.font, self.fontScale,(255,0,0))
+        rightContoursByX = sortByX(rightContours)
+        worked, lx,ly,lw,lh, rx,ry,rw,rh = findLeftAndRightContour(output, leftContours, 0, rightContoursByX, rows)
+        if not worked:
+            print("did not work")
+            return output
+        cv2.rectangle(output, (lx, ly), (lx+lw,ly+lh),(255,0,0),2)
+        
+        cv2.putText(output, "decided left",(lx,ly+lh), self.font, self.fontScale,(255,0,0))
+        cv2.putText(output, "decided right",(rx,ry+rh), self.font, self.fontScale,(255,0,0))
 
-        def findRightContour(rightCnts, rows, leftX, leftH):
-            exitNorm = False
-            # print("leftx: "+str(leftX))
-            for i in range(len(rightCnts)):
-                contour = rightCnts[i]
-                x,y,w,h = cv2.boundingRect(contour)
-                cv2.rectangle(output, (x,y), (x+w,y+h),(255,0,0),2)
-                # print("rightx: "+str(x))
-                if x < leftX or abs(leftH-h) > rows/4:
-                    # print("skipped")
-                    exitNorm = False
-                    continue
-                exitNorm = True
-                break
-            # print("exit norm: "+str(exitNorm))
-            return exitNorm,x,y,w,h
+        leftRect = [lx,ly,lw,lh]
+        rightRect = [rx,ry,rw,rh]
 
-        if cContour >= len(leftContours):
-            return False, 0,0,0,0, 0,0,0,0
-        leftCnt = leftContours[cContour]
-        x,y,w,h = cv2.boundingRect(leftCnt)
-        exitNorm,rx,ry,rw,rh = findRightContour(rightContours,rows,x,h)
-        if not exitNorm:
-            return self.findLeftAndRightContour(output, leftContours, cContour+1, rightContours, rows)
-        return True, x,y,w,h, rx,ry,rw,rh
+        return leftRect, rightRect, output
 
     def process(self, source0):
         """
@@ -87,40 +118,10 @@ class GripPipeline:
         self.__convex_hulls_contours = self.find_contours_output
         (self.convex_hulls_output) = self.__convex_hulls(self.__convex_hulls_contours)
 
-        self.contoursOut = self.convex_hulls_output
-
+        contoursOut = self.convex_hulls_output
         output = source0.copy()
-        cv2.drawContours(output, self.contoursOut, -1, (0, 0, 255), 1)
 
-        self.contourNum = len(self.contoursOut)
-
-        # sortedByX = self.sortByX(self.contoursOut)
-        sortedByHeight = self.sortByHeight(self.contoursOut, source0.shape[1])
-
-        leftContours = []
-        rightContours = []
-        for i in range(0, len(self.contoursOut)):
-            contour = sortedByHeight[i]
-            rows,cols = output.shape[:2]
-            [vx,vy,x,y] = cv2.fitLine(contour, cv2.DIST_L2,0,0.01,0.01)
-            if vx < 0.02 and vx > -0.02:
-                direction ="null"
-            elif vy/vx > 0:
-                direction = "right"
-                rightContours.append(contour)
-            elif vy/vx < 0:
-                direction = "left"
-                leftContours.append(contour)
-            cv2.putText(output, direction,(x,y), self.font, 1,(255,0,0))
-        rightContoursByX = self.sortByX(rightContours)
-        worked, lx,ly,lw,lh, rx,ry,rw,rh = self.findLeftAndRightContour(output, leftContours, 0, rightContoursByX, rows)
-        if not worked:
-            print("did not work")
-            return output
-        cv2.rectangle(output, (lx, ly), (lx+lw,ly+lh),(255,0,0),2)
-        
-        cv2.putText(output, "decided left",(lx,ly+lh-10), self.font, 0.5,(255,0,0))
-        cv2.putText(output, "decided right",(rx,ry+rh-10), self.font, 0.5,(255,0,0))
+        leftRect, rightRect, output = self.selectContours(contoursOut, output)
 
         return output
 
@@ -153,7 +154,8 @@ class GripPipeline:
         else:
             mode = cv2.RETR_LIST
         method = cv2.CHAIN_APPROX_SIMPLE
-        im2, contours, hierarchy =cv2.findContours(input, mode=mode, method=method)
+        # im2, contours, hierarchy =cv2.findContours(input, mode=mode, method=method)
+        contours, hierarchy =cv2.findContours(input, mode=mode, method=method)
         return contours
 
     @staticmethod
